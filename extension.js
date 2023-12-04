@@ -1,18 +1,29 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-const { Gio, GLib, GObject, St } = imports.gi;
+import GLib from 'gi://GLib';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
-const ExtensionUtils = imports.misc.extensionUtils;
-const Main = imports.ui.main;
-const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
+import Gio from 'gi://Gio';
+
+import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+
 
 const dbus = Gio.DBus.system;
 
+// const dbus = Gio.DBus.system;
+
 const Indicator = GObject.registerClass(
-class Indicator extends PanelMenu.Button {
-    _init() {
+    class Indicator extends PanelMenu.Button {
+
+    _init(ext) {
         super._init(0.0, 'Systemd Status');
+
+        console.log("ext is : ", ext);
+        this._extension = ext;
 
         this._greenIcon = this._getGIcon('systemd-green');
         this._yellowIcon = this._getGIcon('systemd-yellow');
@@ -36,10 +47,8 @@ class Indicator extends PanelMenu.Button {
     }
 
     _getGIcon(name) {
-        let metadata = ExtensionUtils.getCurrentExtension();
-
         return Gio.icon_new_for_string(
-            metadata.dir.get_child(`icons/${name}.svg`).get_path()
+            this._extension.dir.get_child(`icons/${name}.svg`).get_path()
         );
     }
 
@@ -69,13 +78,9 @@ class Indicator extends PanelMenu.Button {
     }
 });
 
-class Extension {
+export default class SystemdExtension extends Extension {
     #systemdInterface = 'org.freedesktop.systemd1.Manager';
     #variantTypeTupleOfVariant = GLib.VariantType.new('(v)')
-
-    constructor(uuid) {
-        this._uuid = uuid;
-    }
 
     draw_systemd_state() {
         let systemState = this._systemdProxy.get_cached_property('SystemState').unpack();
@@ -133,8 +138,8 @@ class Extension {
     }
 
     enable() {
-        this._indicator = new Indicator();
-        Main.panel.addToStatusArea(this._uuid, this._indicator);
+        this._indicator = new Indicator(this);
+        Main.panel.addToStatusArea(this.uuid, this._indicator);
 
         if(!this._systemdProxy) {
             this._systemdProxy = Gio.DBusProxy.new_sync(
@@ -196,6 +201,3 @@ class Extension {
     }
 }
 
-function init(meta) {
-    return new Extension(meta.uuid);
-}
